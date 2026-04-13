@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Motion Detection Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css" />
+  </head>
+  <body>
+    <h1>🎯 Motion Detection Dashboard</h1>
+
+    <div class="layout">
+      <!-- ── Video Panel ── -->
+      <div class="video-panel">
+        <div class="topbar">
+          <span style="font-size: 0.9rem; color: #94a3b8">📷 Webcam local</span>
+          <span class="badge" id="status-badge">⏹ Chưa bắt đầu</span>
+        </div>
+
+        <div class="video-wrap">
+          <video
+            id="video"
+            autoplay
+            muted
+            playsinline
+            style="display: none"
+          ></video>
+          <canvas id="canvas"></canvas>
+          <canvas id="overlay-canvas"></canvas>
+        </div>
+
+        <div class="controls">
+          <button id="btn-start">▶ Bắt đầu</button>
+          <button id="btn-stop" disabled>⏹ Dừng</button>
+          <button id="btn-reset" disabled>🔄 Reset background</button>
+
+          <label>
+            FPS gửi:
+            <input
+              type="range"
+              id="fps-range"
+              min="1"
+              max="15"
+              value="5"
+              style="width: 80px"
+            />
+            <span id="fps-label">5</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- ── Stats Panel ── -->
+      <div class="stats-panel">
+        <div class="card">
+          <h2>Trạng thái</h2>
+          <div class="motion-indicator motion-warm" id="motion-status">
+            ⏳ Warming up
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Metrics</h2>
+          <div class="stat-row">
+            <span>Frame đã gửi</span>
+            <span class="val" id="stat-frames">0</span>
+          </div>
+          <div class="stat-row">
+            <span>Warm-up còn lại</span>
+            <span class="val" id="stat-warmup">200</span>
+          </div>
+          <div class="stat-row">
+            <span>FG Ratio</span>
+            <span class="val" id="stat-ratio">0.00%</span>
+          </div>
+          <div class="bar-wrap">
+            <div class="bar-fill" id="ratio-bar" style="width: 0%"></div>
+          </div>
+          <div class="stat-row" style="margin-top: 8px">
+            <span>FG Pixels</span>
+            <span class="val" id="stat-pixels">0</span>
+          </div>
+          <div class="stat-row">
+            <span>Ping (ms)</span>
+            <span class="val" id="stat-ping">—</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Event log</h2>
+          <div id="log"><div class="log-info">── Chờ khởi động... ──</div></div>
+        </div>
+      </div>
+    </div>
+
+    <canvas id="capture-canvas" style="display: none"></canvas>
+
+    <script src="/static/js/dashboard.js"></script>
+  </body>
+</html>

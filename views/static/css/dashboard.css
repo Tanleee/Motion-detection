@@ -1,0 +1,389 @@
+/* ============================================================
+   Base / Reset
+   ============================================================ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+h1 {
+  color: #38bdf8;
+  font-size: 1.5rem;
+  margin-bottom: 24px;
+}
+
+/* ============================================================
+   Layout – 2 cột mặc định (PC >= 1024px)
+   ============================================================ */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  max-width: 1100px;
+}
+
+/* ============================================================
+   Video Panel
+   ============================================================ */
+.video-panel {
+  background: #1e293b;
+  border-radius: 14px;
+  padding: 20px;
+  border: 1px solid #334155;
+}
+
+.video-wrap {
+  position: relative;
+  width: 100%;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+#video {
+  width: 100%;
+  display: block;
+}
+
+#canvas {
+  width: 100%;
+  display: block;
+}
+
+#overlay-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* ============================================================
+   Controls
+   ============================================================ */
+.controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+button {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#btn-start {
+  background: #0284c7;
+  color: #fff;
+}
+
+#btn-stop {
+  background: #dc2626;
+  color: #fff;
+}
+
+#btn-reset {
+  background: #475569;
+  color: #fff;
+}
+
+label {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+input[type="range"] {
+  accent-color: #38bdf8;
+}
+
+/* ============================================================
+   Stats Panel
+   ============================================================ */
+.stats-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card {
+  background: #1e293b;
+  border-radius: 14px;
+  padding: 18px;
+  border: 1px solid #334155;
+}
+
+.card h2 {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   Motion Indicator
+   ============================================================ */
+.motion-indicator {
+  font-size: 2.5rem;
+  font-weight: bold;
+  text-align: center;
+  padding: 10px 0;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.motion-on {
+  color: #f87171;
+  background: #450a0a;
+}
+.motion-off {
+  color: #86efac;
+  background: #052e16;
+}
+.motion-warm {
+  color: #fcd34d;
+  background: #422006;
+}
+
+/* ============================================================
+   Stat Rows
+   ============================================================ */
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid #1e293b;
+  font-size: 0.88rem;
+}
+
+.stat-row:last-child {
+  border-bottom: none;
+}
+
+.stat-row .val {
+  font-weight: bold;
+  color: #f8fafc;
+}
+
+/* ============================================================
+   Progress Bar
+   ============================================================ */
+.bar-wrap {
+  background: #0f172a;
+  border-radius: 6px;
+  height: 10px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #22c55e, #f87171);
+  transition: width 0.3s;
+}
+
+/* ============================================================
+   Event Log
+   ============================================================ */
+#log {
+  height: 180px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 0.78rem;
+  background: #0f172a;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.log-motion {
+  color: #f87171;
+}
+.log-clear {
+  color: #86efac;
+}
+.log-info {
+  color: #94a3b8;
+}
+.log-warm {
+  color: #fcd34d;
+}
+
+/* ============================================================
+   Top Bar & Badge
+   ============================================================ */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge {
+  font-size: 0.78rem;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: #334155;
+  color: #94a3b8;
+}
+
+.badge.live {
+  background: #166534;
+  color: #86efac;
+}
+
+/* ============================================================
+   Responsive – Tablet  (640px – 1023px)
+   ============================================================ */
+@media (max-width: 1023px) and (min-width: 640px) {
+  body {
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+    margin-bottom: 16px;
+  }
+
+  /* 1 cột: stats xuống dưới video */
+  .layout {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+  }
+
+  /* Stats hiển thị dạng 2 cột ngang */
+  .stats-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* Card Event log chiếm full width */
+  .stats-panel .card:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .motion-indicator {
+    font-size: 2rem;
+  }
+
+  button {
+    padding: 8px 16px;
+    font-size: 0.85rem;
+  }
+}
+
+/* ============================================================
+   Responsive – Mobile  (< 640px)
+   ============================================================ */
+@media (max-width: 639px) {
+  body {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 1.1rem;
+    margin-bottom: 14px;
+  }
+
+  /* 1 cột dọc hoàn toàn */
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    max-width: 100%;
+  }
+
+  .video-panel {
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .controls {
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  /* Bắt đầu & Dừng: mỗi cái chiếm 50% */
+  #btn-start,
+  #btn-stop {
+    flex: 1;
+    padding: 10px 8px;
+    font-size: 0.85rem;
+    text-align: center;
+  }
+
+  /* Reset: chiếm full width */
+  #btn-reset {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Label FPS full width */
+  label {
+    width: 100%;
+  }
+
+  input[type="range"] {
+    flex: 1;
+  }
+
+  .stats-panel {
+    gap: 12px;
+  }
+
+  .card {
+    padding: 14px;
+    border-radius: 10px;
+  }
+
+  .motion-indicator {
+    font-size: 1.6rem;
+    padding: 8px 0;
+  }
+
+  .stat-row {
+    font-size: 0.82rem;
+  }
+
+  #log {
+    height: 140px;
+    font-size: 0.72rem;
+  }
+
+  .topbar {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}

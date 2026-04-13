@@ -1,0 +1,121 @@
+/* ============================================================
+   Base
+   ============================================================ */
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 24px;
+  min-height: 100vh;
+}
+
+h1 {
+  color: #38bdf8;
+  margin-bottom: 16px;
+  font-size: 1.4rem;
+}
+
+a {
+  color: #38bdf8;
+  text-decoration: none;
+  font-size: 0.9rem;
+  display: inline-block;
+  margin-bottom: 16px;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================================
+   Info Card
+   ============================================================ */
+.info {
+  background: #1e293b;
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 480px;
+  width: 100%;
+  border: 1px solid #334155;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #334155;
+  font-size: 0.9rem;
+  gap: 12px;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row span {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.row strong {
+  color: #f1f5f9;
+  text-align: right;
+  word-break: break-word;
+}
+
+/* ============================================================
+   Responsive – Tablet  (640px – 1023px)
+   ============================================================ */
+@media (max-width: 1023px) and (min-width: 640px) {
+  body {
+    padding: 20px;
+  }
+
+  .info {
+    max-width: 100%;
+  }
+
+  h1 {
+    font-size: 1.25rem;
+  }
+}
+
+/* ============================================================
+   Responsive – Mobile  (< 640px)
+   ============================================================ */
+@media (max-width: 639px) {
+  body {
+    padding: 14px;
+  }
+
+  h1 {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+
+  a {
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+  }
+
+  .info {
+    max-width: 100%;
+    padding: 14px;
+    border-radius: 8px;
+  }
+
+  .row {
+    /* Trên màn hình nhỏ, chuyển sang dạng 2 dòng xếp chồng */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 10px 0;
+    font-size: 0.85rem;
+  }
+
+  .row strong {
+    text-align: left;
+    color: #e2e8f0;
+  }
+}

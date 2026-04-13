@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ camera.camera_id if camera else "Not found" }}</title>
+    <link rel="stylesheet" href="/static/css/camera_detail.css" />
+  </head>
+  <body>
+    <a href="/">← Quay lại</a>
+    <h1>📷 {{ camera.camera_id if camera else "Camera không tồn tại" }}</h1>
+
+    {% if camera %}
+    <div class="info">
+      <div class="row">
+        <span>Camera ID</span>
+        <strong>{{ camera.camera_id }}</strong>
+      </div>
+      <div class="row">
+        <span>Mô tả</span>
+        <strong>{{ camera.description or "—" }}</strong>
+      </div>
+      <div class="row">
+        <span>Frames nhận</span>
+        <strong>{{ camera.frame_count }}</strong>
+      </div>
+      <div class="row">
+        <span>Trạng thái</span>
+        <strong>
+          {{ "⏳ Warming up" if camera.is_warming_up else ("🟢 Active" if
+          camera.is_active else "🔴 Inactive") }}
+        </strong>
+      </div>
+    </div>
+    {% endif %}
+  </body>
+</html>
