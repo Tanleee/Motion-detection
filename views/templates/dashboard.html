@@ -4,62 +4,127 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Motion Detection Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/css/dashboard.css" />
   </head>
   <body>
-    <h1>🎯 Motion Detection Dashboard</h1>
+    <!-- ── Header ── -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="13" stroke="#38bdf8" stroke-width="2"/>
+            <circle cx="14" cy="14" r="7" fill="#38bdf8" opacity="0.2"/>
+            <circle cx="14" cy="14" r="3" fill="#38bdf8"/>
+            <line x1="14" y1="1" x2="14" y2="5" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="23" x2="14" y2="27" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+            <line x1="1" y1="14" x2="5" y2="14" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+            <line x1="23" y1="14" x2="27" y2="14" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span>Motion<strong>Guard</strong></span>
+        </div>
+        <div class="header-subtitle">GMM Background Subtraction • ESP32-CAM</div>
+      </div>
+      <div class="header-right">
+        <div class="session-time">
+          <span class="session-label">Phiên</span>
+          <span id="session-time">00:00:00</span>
+        </div>
+        <div class="motion-count-badge">
+          <span id="motion-event-count">0</span>
+          <span>sự kiện</span>
+        </div>
+      </div>
+    </header>
 
     <div class="layout">
       <!-- ── Video Panel ── -->
       <div class="video-panel">
         <div class="topbar">
-          <span style="font-size: 0.9rem; color: #94a3b8">📷 Webcam local</span>
-          <span class="badge" id="status-badge">⏹ Chưa bắt đầu</span>
+          <div class="camera-info">
+            <div class="cam-dot" id="cam-dot"></div>
+            <span id="camera-label">📷 Webcam local</span>
+          </div>
+          <div class="topbar-right">
+            <span class="badge" id="status-badge">⏹ Chưa bắt đầu</span>
+          </div>
         </div>
 
-        <div class="video-wrap">
-          <video
-            id="video"
-            autoplay
-            muted
-            playsinline
-            style="display: none"
-          ></video>
+        <div class="video-wrap" id="video-wrap">
+          <video id="video" autoplay muted playsinline style="display:none"></video>
           <canvas id="canvas"></canvas>
           <canvas id="overlay-canvas"></canvas>
+          <div class="motion-flash" id="motion-flash"></div>
+          <div class="placeholder" id="placeholder">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <rect x="4" y="12" width="56" height="40" rx="6" stroke="#334155" stroke-width="2"/>
+              <circle cx="32" cy="32" r="10" stroke="#334155" stroke-width="2"/>
+              <circle cx="32" cy="32" r="4" fill="#334155"/>
+              <rect x="22" y="8" width="20" height="6" rx="2" fill="#334155"/>
+            </svg>
+            <p>Nhấn <strong>Bắt đầu</strong> để mở camera</p>
+          </div>
         </div>
 
         <div class="controls">
-          <button id="btn-start">▶ Bắt đầu</button>
-          <button id="btn-stop" disabled>⏹ Dừng</button>
-          <button id="btn-reset" disabled>🔄 Reset background</button>
-
-          <label>
-            FPS gửi:
-            <input
-              type="range"
-              id="fps-range"
-              min="1"
-              max="15"
-              value="5"
-              style="width: 80px"
-            />
-            <span id="fps-label">5</span>
-          </label>
+          <div class="controls-left">
+            <button id="btn-start" class="btn btn-primary">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="2,1 13,7 2,13"/></svg>
+              Bắt đầu
+            </button>
+            <button id="btn-stop" class="btn btn-danger" disabled>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="2" y="2" width="10" height="10" rx="1"/></svg>
+              Dừng
+            </button>
+            <button id="btn-reset" class="btn btn-secondary" disabled>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7a5 5 0 1 0 1-3"/><path d="M2 2v3h3"/></svg>
+              Reset BG
+            </button>
+            <button id="btn-snapshot" class="btn btn-secondary" disabled>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="12" height="9" rx="1.5"/><circle cx="7" cy="7.5" r="2.5"/><path d="M4.5 3 L5.5 1 h3 l1 2"/></svg>
+              Chụp ảnh
+            </button>
+          </div>
+          <div class="controls-right">
+            <div class="toggle-group">
+              <label class="toggle-label">
+                <input type="checkbox" id="toggle-sound" />
+                <span class="toggle-switch"></span>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 5H5L9 2v10L5 9H2V5z"/><path d="M11 4.5a3.5 3.5 0 0 1 0 5"/></svg>
+                Âm thanh
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="toggle-autosnap" />
+                <span class="toggle-switch"></span>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="12" height="9" rx="1.5"/><circle cx="7" cy="7.5" r="2"/></svg>
+                Auto-snap
+              </label>
+            </div>
+            <label class="fps-label">
+              <span>FPS:</span>
+              <input type="range" id="fps-range" min="1" max="15" value="5" />
+              <span id="fps-label" class="fps-val">5</span>
+            </label>
+          </div>
         </div>
       </div>
 
       <!-- ── Stats Panel ── -->
       <div class="stats-panel">
-        <div class="card">
-          <h2>Trạng thái</h2>
+        <!-- Motion status -->
+        <div class="card card-status">
+          <div class="card-title">Trạng thái</div>
           <div class="motion-indicator motion-warm" id="motion-status">
-            ⏳ Warming up
+            <div class="motion-icon">⏳</div>
+            <div class="motion-text">Warming up</div>
           </div>
         </div>
 
+        <!-- Metrics -->
         <div class="card">
-          <h2>Metrics</h2>
+          <div class="card-title">Metrics</div>
           <div class="stat-row">
             <span>Frame đã gửi</span>
             <span class="val" id="stat-frames">0</span>
@@ -73,9 +138,10 @@
             <span class="val" id="stat-ratio">0.00%</span>
           </div>
           <div class="bar-wrap">
-            <div class="bar-fill" id="ratio-bar" style="width: 0%"></div>
+            <div class="bar-fill" id="ratio-bar" style="width:0%"></div>
+            <div class="bar-threshold" id="threshold-marker"></div>
           </div>
-          <div class="stat-row" style="margin-top: 8px">
+          <div class="stat-row" style="margin-top:8px">
             <span>FG Pixels</span>
             <span class="val" id="stat-pixels">0</span>
           </div>
@@ -83,16 +149,33 @@
             <span>Ping (ms)</span>
             <span class="val" id="stat-ping">—</span>
           </div>
+          <div class="stat-row">
+            <span>Sự kiện chuyển động</span>
+            <span class="val" id="stat-events">0</span>
+          </div>
         </div>
 
+        <!-- Chart -->
         <div class="card">
-          <h2>Event log</h2>
+          <div class="card-title">
+            Lịch sử FG Ratio
+            <span class="chart-legend"><span class="dot dot-ratio"></span>Ratio <span class="dot dot-threshold"></span>Ngưỡng</span>
+          </div>
+          <canvas id="ratio-chart" height="80"></canvas>
+        </div>
+
+        <!-- Event log -->
+        <div class="card">
+          <div class="card-title">
+            Event Log
+            <button id="btn-clear-log" class="btn-tiny">Xóa</button>
+          </div>
           <div id="log"><div class="log-info">── Chờ khởi động... ──</div></div>
         </div>
       </div>
     </div>
 
-    <canvas id="capture-canvas" style="display: none"></canvas>
+    <canvas id="capture-canvas" style="display:none"></canvas>
 
     <script src="/static/js/dashboard.js"></script>
   </body>
