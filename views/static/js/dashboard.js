@@ -55,13 +55,23 @@ function openEspModal() {
   const modal = document.getElementById("esp-modal");
   const errEl = document.getElementById("esp-error");
   errEl.style.display = "none";
-  modal.classList.add("open");
-  // Focus vào trường đầu tiên
-  setTimeout(() => document.getElementById("esp-cam-id").focus(), 80);
+  // Hiện modal trước, rồi mới add class để trigger CSS transition
+  modal.style.display = "flex";
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => modal.classList.add("open"));
+  });
+  setTimeout(() => document.getElementById("esp-cam-id").focus(), 100);
 }
 
 function closeEspModal() {
-  document.getElementById("esp-modal").classList.remove("open");
+  const modal = document.getElementById("esp-modal");
+  modal.classList.remove("open");
+  // Đợi transition xong rồi mới ẩn hẳn (fallback 300ms nếu transitionend ko fire)
+  const hide = () => {
+    modal.style.display = "none";
+  };
+  modal.addEventListener("transitionend", hide, { once: true });
+  setTimeout(hide, 300);
 }
 
 function handleModalBackdropClick(e) {
