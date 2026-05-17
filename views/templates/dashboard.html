@@ -6,7 +6,10 @@
     <title>Motion Detection Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/static/css/dashboard.css" />
   </head>
   <body>
@@ -15,17 +18,51 @@
       <div class="header-left">
         <div class="logo">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <circle cx="14" cy="14" r="13" stroke="#38bdf8" stroke-width="2"/>
-            <circle cx="14" cy="14" r="7" fill="#38bdf8" opacity="0.2"/>
-            <circle cx="14" cy="14" r="3" fill="#38bdf8"/>
-            <line x1="14" y1="1" x2="14" y2="5" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
-            <line x1="14" y1="23" x2="14" y2="27" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
-            <line x1="1" y1="14" x2="5" y2="14" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
-            <line x1="23" y1="14" x2="27" y2="14" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="14" cy="14" r="13" stroke="#38bdf8" stroke-width="2" />
+            <circle cx="14" cy="14" r="7" fill="#38bdf8" opacity="0.2" />
+            <circle cx="14" cy="14" r="3" fill="#38bdf8" />
+            <line
+              x1="14"
+              y1="1"
+              x2="14"
+              y2="5"
+              stroke="#38bdf8"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <line
+              x1="14"
+              y1="23"
+              x2="14"
+              y2="27"
+              stroke="#38bdf8"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <line
+              x1="1"
+              y1="14"
+              x2="5"
+              y2="14"
+              stroke="#38bdf8"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <line
+              x1="23"
+              y1="14"
+              x2="27"
+              y2="14"
+              stroke="#38bdf8"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
           </svg>
           <span>Motion<strong>Guard</strong></span>
         </div>
-        <div class="header-subtitle">GMM Background Subtraction • ESP32-CAM</div>
+        <div class="header-subtitle">
+          GMM Background Subtraction • ESP32-CAM
+        </div>
       </div>
       <div class="header-right">
         <div class="session-time">
@@ -42,6 +79,20 @@
     <div class="layout">
       <!-- ── Video Panel ── -->
       <div class="video-panel">
+        <!-- Mode tabs -->
+        <div class="mode-tabs">
+          <button
+            id="tab-local"
+            class="tab-btn tab-active"
+            onclick="switchMode('local')"
+          >
+            📷 Webcam Local
+          </button>
+          <button id="tab-esp" class="tab-btn" onclick="switchMode('esp')">
+            📡 ESP32-CAM
+          </button>
+        </div>
+
         <div class="topbar">
           <div class="camera-info">
             <div class="cam-dot" id="cam-dot"></div>
@@ -53,37 +104,137 @@
         </div>
 
         <div class="video-wrap" id="video-wrap">
-          <video id="video" autoplay muted playsinline style="display:none"></video>
+          <!-- Local cam elements -->
+          <video
+            id="video"
+            autoplay
+            muted
+            playsinline
+            style="display: none"
+          ></video>
           <canvas id="canvas"></canvas>
           <canvas id="overlay-canvas"></canvas>
+
+          <!-- ESP32-CAM stream (img MJPEG) -->
+          <img
+            id="esp-feed"
+            style="display: none; width: 100%; border-radius: 8px"
+            alt="ESP32-CAM stream"
+          />
+
           <div class="motion-flash" id="motion-flash"></div>
+
+          <!-- Placeholder local -->
           <div class="placeholder" id="placeholder">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-              <rect x="4" y="12" width="56" height="40" rx="6" stroke="#334155" stroke-width="2"/>
-              <circle cx="32" cy="32" r="10" stroke="#334155" stroke-width="2"/>
-              <circle cx="32" cy="32" r="4" fill="#334155"/>
-              <rect x="22" y="8" width="20" height="6" rx="2" fill="#334155"/>
+              <rect
+                x="4"
+                y="12"
+                width="56"
+                height="40"
+                rx="6"
+                stroke="#334155"
+                stroke-width="2"
+              />
+              <circle
+                cx="32"
+                cy="32"
+                r="10"
+                stroke="#334155"
+                stroke-width="2"
+              />
+              <circle cx="32" cy="32" r="4" fill="#334155" />
+              <rect x="22" y="8" width="20" height="6" rx="2" fill="#334155" />
             </svg>
             <p>Nhấn <strong>Bắt đầu</strong> để mở camera</p>
           </div>
+
+          <!-- ESP connect overlay -->
+          <div class="esp-overlay" id="esp-overlay">
+            <div class="esp-connect-box">
+              <div class="esp-connect-title">📡 Kết nối ESP32-CAM</div>
+              <div class="esp-field">
+                <label>Camera ID</label>
+                <input
+                  id="esp-cam-id"
+                  type="text"
+                  placeholder="vd: esp32_cam1"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="esp-field">
+                <label>API Key</label>
+                <input
+                  id="esp-api-key"
+                  type="password"
+                  placeholder="Nhập API key của bạn"
+                  autocomplete="off"
+                />
+              </div>
+              <button
+                class="btn btn-primary"
+                style="width: 100%; justify-content: center"
+                onclick="connectEsp()"
+              >
+                Kết nối
+              </button>
+              <div id="esp-error" class="esp-error" style="display: none"></div>
+            </div>
+          </div>
         </div>
 
-        <div class="controls">
+        <!-- Local cam controls -->
+        <div class="controls" id="local-controls">
           <div class="controls-left">
             <button id="btn-start" class="btn btn-primary">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><polygon points="2,1 13,7 2,13"/></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="currentColor"
+              >
+                <polygon points="2,1 13,7 2,13" />
+              </svg>
               Bắt đầu
             </button>
             <button id="btn-stop" class="btn btn-danger" disabled>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="2" y="2" width="10" height="10" rx="1"/></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="currentColor"
+              >
+                <rect x="2" y="2" width="10" height="10" rx="1" />
+              </svg>
               Dừng
             </button>
             <button id="btn-reset" class="btn btn-secondary" disabled>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7a5 5 0 1 0 1-3"/><path d="M2 2v3h3"/></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M2 7a5 5 0 1 0 1-3" />
+                <path d="M2 2v3h3" />
+              </svg>
               Reset BG
             </button>
             <button id="btn-snapshot" class="btn btn-secondary" disabled>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="12" height="9" rx="1.5"/><circle cx="7" cy="7.5" r="2.5"/><path d="M4.5 3 L5.5 1 h3 l1 2"/></svg>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="1" y="3" width="12" height="9" rx="1.5" />
+                <circle cx="7" cy="7.5" r="2.5" />
+                <path d="M4.5 3 L5.5 1 h3 l1 2" />
+              </svg>
               Chụp ảnh
             </button>
           </div>
@@ -92,13 +243,33 @@
               <label class="toggle-label">
                 <input type="checkbox" id="toggle-sound" />
                 <span class="toggle-switch"></span>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 5H5L9 2v10L5 9H2V5z"/><path d="M11 4.5a3.5 3.5 0 0 1 0 5"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="M2 5H5L9 2v10L5 9H2V5z" />
+                  <path d="M11 4.5a3.5 3.5 0 0 1 0 5" />
+                </svg>
                 Âm thanh
               </label>
               <label class="toggle-label">
                 <input type="checkbox" id="toggle-autosnap" />
                 <span class="toggle-switch"></span>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="3" width="12" height="9" rx="1.5"/><circle cx="7" cy="7.5" r="2"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <rect x="1" y="3" width="12" height="9" rx="1.5" />
+                  <circle cx="7" cy="7.5" r="2" />
+                </svg>
                 Auto-snap
               </label>
             </div>
@@ -109,11 +280,64 @@
             </label>
           </div>
         </div>
+
+        <!-- ESP cam controls -->
+        <div class="controls" id="esp-controls" style="display: none">
+          <div class="controls-left">
+            <button class="btn btn-danger" onclick="disconnectEsp()">
+              ✕ Ngắt kết nối
+            </button>
+            <button
+              class="btn btn-secondary"
+              id="btn-esp-reset"
+              onclick="resetEspBg()"
+              disabled
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M2 7a5 5 0 1 0 1-3" />
+                <path d="M2 2v3h3" />
+              </svg>
+              Reset BG
+            </button>
+          </div>
+          <div class="controls-right">
+            <div class="toggle-group">
+              <label class="toggle-label">
+                <input type="checkbox" id="toggle-sound-esp" />
+                <span class="toggle-switch"></span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <path d="M2 5H5L9 2v10L5 9H2V5z" />
+                  <path d="M11 4.5a3.5 3.5 0 0 1 0 5" />
+                </svg>
+                Âm thanh
+              </label>
+            </div>
+            <span style="font-size: 0.78rem; color: var(--text-muted)"
+              >Camera ID:
+              <strong id="esp-cam-label" style="color: var(--accent)"
+                >—</strong
+              ></span
+            >
+          </div>
+        </div>
       </div>
 
-      <!-- ── Stats Panel ── -->
+      <!-- ── Stats Panel (dùng chung) ── -->
       <div class="stats-panel">
-        <!-- Motion status -->
         <div class="card card-status">
           <div class="card-title">Trạng thái</div>
           <div class="motion-indicator motion-warm" id="motion-status">
@@ -122,7 +346,6 @@
           </div>
         </div>
 
-        <!-- Metrics -->
         <div class="card">
           <div class="card-title">Metrics</div>
           <div class="stat-row">
@@ -138,10 +361,10 @@
             <span class="val" id="stat-ratio">0.00%</span>
           </div>
           <div class="bar-wrap">
-            <div class="bar-fill" id="ratio-bar" style="width:0%"></div>
+            <div class="bar-fill" id="ratio-bar" style="width: 0%"></div>
             <div class="bar-threshold" id="threshold-marker"></div>
           </div>
-          <div class="stat-row" style="margin-top:8px">
+          <div class="stat-row" style="margin-top: 8px">
             <span>FG Pixels</span>
             <span class="val" id="stat-pixels">0</span>
           </div>
@@ -155,28 +378,30 @@
           </div>
         </div>
 
-        <!-- Chart -->
         <div class="card">
           <div class="card-title">
             Lịch sử FG Ratio
-            <span class="chart-legend"><span class="dot dot-ratio"></span>Ratio <span class="dot dot-threshold"></span>Ngưỡng</span>
+            <span class="chart-legend">
+              <span class="dot dot-ratio"></span>Ratio
+              <span class="dot dot-threshold"></span>Ngưỡng
+            </span>
           </div>
           <canvas id="ratio-chart" height="80"></canvas>
         </div>
 
-        <!-- Event log -->
         <div class="card">
           <div class="card-title">
             Event Log
-            <button id="btn-clear-log" class="btn-tiny">Xóa</button>
+            <button id="btn-clear-log" class="btn-tiny" onclick="clearLog()">
+              Xóa
+            </button>
           </div>
           <div id="log"><div class="log-info">── Chờ khởi động... ──</div></div>
         </div>
       </div>
     </div>
 
-    <canvas id="capture-canvas" style="display:none"></canvas>
-
+    <canvas id="capture-canvas" style="display: none"></canvas>
     <script src="/static/js/dashboard.js"></script>
   </body>
 </html>

@@ -11,8 +11,13 @@ class Settings(BaseSettings):
     MORPH_CLOSE_SIZE  : int   = 7
 
     # Motion detection
-    MOTION_RATIO_THRESHOLD : float = 0.01  # >1% pixel FG → có motion
-    FRAME_TIMEOUT_SEC      : float = 5.0   # Reset nếu cam im >5s
+    MOTION_RATIO_THRESHOLD : float = 0.01
+    FRAME_TIMEOUT_SEC      : float = 5.0
+
+    # ── Auth ─────────────────────────────────────────
+    # Danh sách API key hợp lệ, ngăn cách bằng dấu phẩy
+    # Ví dụ: "key_abc123,key_xyz789"
+    API_KEYS : str = ""
 
     # Server
     HOST : str = "0.0.0.0"

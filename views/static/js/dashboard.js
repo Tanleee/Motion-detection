@@ -1,50 +1,196 @@
 // ── Constants ────────────────────────────────────────────────
-const CAMERA_ID       = "web_client";
-const WARMUP_FRAMES   = 200;
+const LOCAL_CAMERA_ID = "web_client";
+const WARMUP_FRAMES = 200;
 const THRESHOLD_RATIO = 0.01;
-const CHART_POINTS    = 60;
+const CHART_POINTS = 60;
 
 // ── Elements ─────────────────────────────────────────────────
-const video         = document.getElementById("video");
+const video = document.getElementById("video");
 const displayCanvas = document.getElementById("canvas");
 const overlayCanvas = document.getElementById("overlay-canvas");
 const captureCanvas = document.getElementById("capture-canvas");
-const ratioChart    = document.getElementById("ratio-chart");
-const motionFlash   = document.getElementById("motion-flash");
-const placeholder   = document.getElementById("placeholder");
+const ratioChart = document.getElementById("ratio-chart");
+const motionFlash = document.getElementById("motion-flash");
+const placeholder = document.getElementById("placeholder");
+const espOverlay = document.getElementById("esp-overlay");
+const espFeed = document.getElementById("esp-feed");
 
 const dCtx = displayCanvas.getContext("2d");
 const oCtx = overlayCanvas.getContext("2d");
 const cCtx = captureCanvas.getContext("2d");
 const chartCtx = ratioChart.getContext("2d");
 
-const btnStart    = document.getElementById("btn-start");
-const btnStop     = document.getElementById("btn-stop");
-const btnReset    = document.getElementById("btn-reset");
+const btnStart = document.getElementById("btn-start");
+const btnStop = document.getElementById("btn-stop");
+const btnReset = document.getElementById("btn-reset");
 const btnSnapshot = document.getElementById("btn-snapshot");
-const btnClearLog = document.getElementById("btn-clear-log");
-const fpsRange    = document.getElementById("fps-range");
-const fpsLabel    = document.getElementById("fps-label");
-const toggleSound   = document.getElementById("toggle-sound");
-const toggleAutosnap= document.getElementById("toggle-autosnap");
+const fpsRange = document.getElementById("fps-range");
+const fpsLabel = document.getElementById("fps-label");
+const toggleSound = document.getElementById("toggle-sound");
+const toggleAutosnap = document.getElementById("toggle-autosnap");
+const toggleSoundEsp = document.getElementById("toggle-sound-esp");
 
 // ── State ─────────────────────────────────────────────────────
-let stream       = null;
-let sendTimer    = null;
-let isSending    = false;
-let frameCount   = 0;
-let lastMotion   = false;
+let currentMode = "local"; // "local" | "esp"
+let stream = null;
+let sendTimer = null;
+let isSending = false;
+let frameCount = 0;
+let lastMotion = false;
 let motionEvents = 0;
 let sessionStart = null;
-let sessionTick  = null;
-let audioCtx     = null;
+let sessionTick = null;
+let audioCtx = null;
 let ratioHistory = new Array(CHART_POINTS).fill(0);
 let autoSnapLast = false;
+
+// ESP state
+let espCamId = "";
+let espApiKey = "";
+let espPollTimer = null;
+let espConnected = false;
+
+// ── Mode switching ─────────────────────────────────────────────
+function switchMode(mode) {
+  if (mode === currentMode) return;
+
+  if (currentMode === "local") stopAll();
+  if (currentMode === "esp") disconnectEsp();
+
+  currentMode = mode;
+
+  document
+    .getElementById("tab-local")
+    .classList.toggle("tab-active", mode === "local");
+  document
+    .getElementById("tab-esp")
+    .classList.toggle("tab-active", mode === "esp");
+  document.getElementById("local-controls").style.display =
+    mode === "local" ? "" : "none";
+  document.getElementById("esp-controls").style.display =
+    mode === "esp" ? "" : "none";
+
+  if (mode === "local") {
+    espFeed.style.display = "none";
+    espOverlay.style.display = "none";
+    displayCanvas.style.display = "";
+    placeholder.style.display = "";
+    document.getElementById("camera-label").textContent = "📷 Webcam local";
+    setStatus("stopped");
+  } else {
+    displayCanvas.style.display = "none";
+    placeholder.style.display = "none";
+    espFeed.style.display = "none";
+    espOverlay.style.display = "";
+    document.getElementById("camera-label").textContent = "📡 ESP32-CAM";
+    setStatus("stopped");
+  }
+}
+
+// ── ESP32-CAM connection ───────────────────────────────────────
+function connectEsp() {
+  const camId = document.getElementById("esp-cam-id").value.trim();
+  const apiKey = document.getElementById("esp-api-key").value.trim();
+  const errEl = document.getElementById("esp-error");
+
+  errEl.style.display = "none";
+  if (!camId || !apiKey) {
+    errEl.textContent = "Vui lòng nhập Camera ID và API Key";
+    errEl.style.display = "";
+    return;
+  }
+
+  espCamId = camId;
+  espApiKey = apiKey;
+
+  // Kiểm tra camera tồn tại trên server trước
+  fetch(`/api/cameras/${encodeURIComponent(camId)}/status`)
+    .then((r) => {
+      if (!r.ok)
+        throw new Error(`Camera '${camId}' chưa gửi frame nào lên server`);
+      return r.json();
+    })
+    .then((data) => {
+      if (!data.has_frame)
+        throw new Error("Camera chưa có frame — ESP32 chưa kết nối?");
+
+      // Hiện MJPEG stream
+      espFeed.onerror = () => {
+        addLog("❌ Stream lỗi — kiểm tra Camera ID / API Key", "log-motion");
+        disconnectEsp();
+      };
+      espFeed.src = `/api/cameras/${encodeURIComponent(camId)}/mjpeg?api_key=${encodeURIComponent(apiKey)}`;
+      espFeed.style.display = "";
+      espOverlay.style.display = "none";
+      espConnected = true;
+
+      document.getElementById("esp-cam-label").textContent = camId;
+      document.getElementById("btn-esp-reset").disabled = false;
+      document.getElementById("esp-controls").style.display = "";
+      setStatus("live");
+      document.getElementById("cam-dot").classList.add("live");
+      addLog(`📡 Đã kết nối ESP32-CAM: ${camId}`, "log-info");
+      startSessionTimer();
+
+      // Poll metrics mỗi 2s
+      espPollTimer = setInterval(() => pollEspStatus(camId), 2000);
+    })
+    .catch((err) => {
+      errEl.textContent = err.message;
+      errEl.style.display = "";
+    });
+}
+
+function disconnectEsp() {
+  clearInterval(espPollTimer);
+  espPollTimer = null;
+  espConnected = false;
+  espFeed.src = "";
+  espFeed.style.display = "none";
+  espOverlay.style.display = "";
+  document.getElementById("cam-dot").classList.remove("live");
+  document.getElementById("btn-esp-reset").disabled = true;
+  setStatus("stopped");
+  stopSessionTimer();
+  addLog("📡 Đã ngắt kết nối ESP32-CAM", "log-info");
+}
+
+async function pollEspStatus(camId) {
+  try {
+    const t0 = performance.now();
+    const res = await fetch(`/api/cameras/${encodeURIComponent(camId)}/status`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const ping = Math.round(performance.now() - t0);
+
+    // Tái dùng updateUI với dữ liệu từ status
+    const fakeData = {
+      camera_id: data.camera_id,
+      motion_detected: data.motion_detected,
+      foreground_ratio: data.foreground_ratio,
+      foreground_pixels: 0,
+      total_pixels: 1,
+      warming_up: data.warming_up,
+      frame_count: data.frame_count,
+    };
+    updateUI(fakeData, ping, toggleSoundEsp.checked);
+  } catch (_) {}
+}
+
+async function resetEspBg() {
+  if (!espCamId || !espApiKey) return;
+  await fetch(`/api/cameras/${encodeURIComponent(espCamId)}`, {
+    method: "DELETE",
+    headers: { "X-API-Key": espApiKey },
+  });
+  ratioHistory = new Array(CHART_POINTS).fill(0);
+  addLog("🔄 Background ESP đã reset", "log-warm");
+}
 
 // ── Session timer ────────────────────────────────────────────
 function startSessionTimer() {
   sessionStart = Date.now();
-  sessionTick  = setInterval(() => {
+  sessionTick = setInterval(() => {
     const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
     const h = String(Math.floor(elapsed / 3600)).padStart(2, "0");
     const m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
@@ -52,28 +198,30 @@ function startSessionTimer() {
     document.getElementById("session-time").textContent = `${h}:${m}:${s}`;
   }, 1000);
 }
-
 function stopSessionTimer() {
   clearInterval(sessionTick);
   sessionTick = null;
 }
 
-// ── Audio alert ───────────────────────────────────────────────
+// ── Audio ─────────────────────────────────────────────────────
 function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx)
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 }
-
 function playBeep(freq = 880, duration = 0.18, type = "square") {
   try {
     ensureAudio();
-    const osc  = audioCtx.createOscillator();
+    const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     osc.type = type;
     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
     gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      audioCtx.currentTime + duration,
+    );
     osc.start();
     osc.stop(audioCtx.currentTime + duration);
   } catch (_) {}
@@ -83,9 +231,8 @@ function playBeep(freq = 880, duration = 0.18, type = "square") {
 function drawChart() {
   const W = ratioChart.parentElement.clientWidth - 32;
   const H = 80;
-  ratioChart.width  = W;
+  ratioChart.width = W;
   ratioChart.height = H;
-
   chartCtx.clearRect(0, 0, W, H);
 
   const grad = chartCtx.createLinearGradient(0, 0, 0, H);
@@ -93,13 +240,12 @@ function drawChart() {
   grad.addColorStop(1, "rgba(56,189,248,0.01)");
 
   const step = W / (CHART_POINTS - 1);
-  const max  = Math.max(...ratioHistory, THRESHOLD_RATIO * 3, 0.01);
+  const max = Math.max(...ratioHistory, THRESHOLD_RATIO * 3, 0.01);
 
-  // Filled area
   chartCtx.beginPath();
   ratioHistory.forEach((v, i) => {
-    const x = i * step;
-    const y = H - (v / max) * (H - 6);
+    const x = i * step,
+      y = H - (v / max) * (H - 6);
     i === 0 ? chartCtx.moveTo(x, y) : chartCtx.lineTo(x, y);
   });
   chartCtx.lineTo((CHART_POINTS - 1) * step, H);
@@ -108,45 +254,47 @@ function drawChart() {
   chartCtx.fillStyle = grad;
   chartCtx.fill();
 
-  // Line
   chartCtx.beginPath();
   ratioHistory.forEach((v, i) => {
-    const x = i * step;
-    const y = H - (v / max) * (H - 6);
+    const x = i * step,
+      y = H - (v / max) * (H - 6);
     i === 0 ? chartCtx.moveTo(x, y) : chartCtx.lineTo(x, y);
   });
   chartCtx.strokeStyle = "#38bdf8";
-  chartCtx.lineWidth   = 1.8;
-  chartCtx.lineJoin    = "round";
+  chartCtx.lineWidth = 1.8;
+  chartCtx.lineJoin = "round";
   chartCtx.stroke();
 
-  // Threshold line
   const ty = H - (THRESHOLD_RATIO / max) * (H - 6);
   chartCtx.beginPath();
   chartCtx.setLineDash([4, 4]);
   chartCtx.moveTo(0, ty);
   chartCtx.lineTo(W, ty);
   chartCtx.strokeStyle = "rgba(239,68,68,0.6)";
-  chartCtx.lineWidth   = 1.2;
+  chartCtx.lineWidth = 1.2;
   chartCtx.stroke();
   chartCtx.setLineDash([]);
 }
 
-// ── Snapshot ───────────────────────────────────────────────────
+// ── Snapshot ──────────────────────────────────────────────────
 function takeSnapshot(label = "snapshot") {
   if (!stream) return;
   cCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
-  captureCanvas.toBlob((blob) => {
-    if (!blob) return;
-    const url  = URL.createObjectURL(blob);
-    const ts   = new Date().toLocaleTimeString().replace(/:/g, "-");
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `motion_${ts}.jpg`;
-    a.click();
-    URL.revokeObjectURL(url);
-    addLog(`📸 Đã chụp ảnh (${label})`, "log-snap");
-  }, "image/jpeg", 0.92);
+  captureCanvas.toBlob(
+    (blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const ts = new Date().toLocaleTimeString().replace(/:/g, "-");
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `motion_${ts}.jpg`;
+      a.click();
+      URL.revokeObjectURL(url);
+      addLog(`📸 Đã chụp ảnh (${label})`, "log-snap");
+    },
+    "image/jpeg",
+    0.92,
+  );
 }
 
 // ── FPS slider ────────────────────────────────────────────────
@@ -155,33 +303,36 @@ fpsRange.addEventListener("input", () => {
   if (sendTimer) restartTimer();
 });
 
-// ── Start ─────────────────────────────────────────────────────
+// ── Start local cam ───────────────────────────────────────────
 btnStart.addEventListener("click", async () => {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480 }, audio: false,
+      video: { width: 640, height: 480 },
+      audio: false,
     });
     video.srcObject = stream;
 
-    video.addEventListener("loadedmetadata", async () => {
-      displayCanvas.width  = video.videoWidth;
-      displayCanvas.height = video.videoHeight;
-      overlayCanvas.width  = video.videoWidth;
-      overlayCanvas.height = video.videoHeight;
-      captureCanvas.width  = video.videoWidth;
-      captureCanvas.height = video.videoHeight;
+    video.addEventListener(
+      "loadedmetadata",
+      async () => {
+        displayCanvas.width = video.videoWidth;
+        displayCanvas.height = video.videoHeight;
+        overlayCanvas.width = video.videoWidth;
+        overlayCanvas.height = video.videoHeight;
+        captureCanvas.width = video.videoWidth;
+        captureCanvas.height = video.videoHeight;
+        await video.play();
+        placeholder.style.display = "none";
+        requestAnimationFrame(drawFrame);
+        startSending();
+        startSessionTimer();
+      },
+      { once: true },
+    );
 
-      await video.play();
-
-      placeholder.style.display = "none";
-      requestAnimationFrame(drawFrame);
-      startSending();
-      startSessionTimer();
-    }, { once: true });
-
-    btnStart.disabled    = true;
-    btnStop.disabled     = false;
-    btnReset.disabled    = false;
+    btnStart.disabled = true;
+    btnStop.disabled = false;
+    btnReset.disabled = false;
     btnSnapshot.disabled = false;
     setStatus("live");
     document.getElementById("cam-dot").classList.add("live");
@@ -191,46 +342,34 @@ btnStart.addEventListener("click", async () => {
   }
 });
 
-// ── Stop ──────────────────────────────────────────────────────
 btnStop.addEventListener("click", () => {
   stopAll();
   addLog("⏹ Đã dừng phiên", "log-info");
 });
 
-// ── Reset background ──────────────────────────────────────────
 btnReset.addEventListener("click", async () => {
-  await fetch(`/api/cameras/${CAMERA_ID}`, { method: "DELETE" });
+  await fetch(`/api/cameras/${LOCAL_CAMERA_ID}`, { method: "DELETE" });
   frameCount = 0;
   ratioHistory = new Array(CHART_POINTS).fill(0);
   document.getElementById("stat-frames").textContent = "0";
   document.getElementById("stat-warmup").textContent = WARMUP_FRAMES;
-  addLog("🔄 Background đã reset — warm-up lại từ đầu", "log-warm");
+  addLog("🔄 Background đã reset", "log-warm");
 });
 
-// ── Snapshot button ───────────────────────────────────────────
 btnSnapshot.addEventListener("click", () => takeSnapshot("manual"));
 
-// ── Clear log button ──────────────────────────────────────────
-btnClearLog.addEventListener("click", () => {
-  const log = document.getElementById("log");
-  log.innerHTML = '<div class="log-info">── Log đã xóa ──</div>';
-});
-
-// ── Draw video to display canvas ──────────────────────────────
+// ── Draw / send ───────────────────────────────────────────────
 function drawFrame() {
   if (!stream) return;
-  if (video.readyState >= video.HAVE_CURRENT_DATA) {
+  if (video.readyState >= video.HAVE_CURRENT_DATA)
     dCtx.drawImage(video, 0, 0, displayCanvas.width, displayCanvas.height);
-  }
   requestAnimationFrame(drawFrame);
 }
 
-// ── Send frame to server ──────────────────────────────────────
 function startSending() {
   const interval = 1000 / parseInt(fpsRange.value);
   sendTimer = setInterval(sendFrame, interval);
 }
-
 function restartTimer() {
   clearInterval(sendTimer);
   startSending();
@@ -240,57 +379,62 @@ async function sendFrame() {
   if (isSending || !stream) return;
   if (video.readyState < video.HAVE_CURRENT_DATA) return;
   isSending = true;
-
   cCtx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
-
-  captureCanvas.toBlob(async (blob) => {
-    if (!blob) { isSending = false; return; }
-
-    const form = new FormData();
-    form.append("file", blob, "frame.jpg");
-
-    const t0 = performance.now();
-    try {
-      const res  = await fetch(`/api/cameras/${CAMERA_ID}/predict`, { method: "POST", body: form });
-      const ping = Math.round(performance.now() - t0);
-      const data = await res.json();
-      updateUI(data, ping);
-    } catch (_) {
-      addLog("❌ Lỗi kết nối server", "log-motion");
-    }
-
-    isSending = false;
-  }, "image/jpeg", 0.7);
+  captureCanvas.toBlob(
+    async (blob) => {
+      if (!blob) {
+        isSending = false;
+        return;
+      }
+      const form = new FormData();
+      form.append("file", blob, "frame.jpg");
+      const t0 = performance.now();
+      try {
+        const res = await fetch(`/api/cameras/${LOCAL_CAMERA_ID}/predict`, {
+          method: "POST",
+          body: form,
+        });
+        const ping = Math.round(performance.now() - t0);
+        const data = await res.json();
+        updateUI(data, ping, toggleSound.checked);
+      } catch (_) {
+        addLog("❌ Lỗi kết nối server", "log-motion");
+      }
+      isSending = false;
+    },
+    "image/jpeg",
+    0.7,
+  );
 }
 
-// ── Update UI ─────────────────────────────────────────────────
-function updateUI(data, ping) {
-  frameCount       = data.frame_count;
-  const ratio      = (data.foreground_ratio * 100).toFixed(2);
-  const warmLeft   = Math.max(0, WARMUP_FRAMES - data.frame_count);
-  const isMotion   = data.motion_detected && !data.warming_up;
+// ── Update UI (dùng chung local & ESP) ───────────────────────
+function updateUI(data, ping, soundEnabled = false) {
+  frameCount = data.frame_count;
+  const ratio = (data.foreground_ratio * 100).toFixed(2);
+  const warmLeft = Math.max(0, WARMUP_FRAMES - data.frame_count);
+  const isMotion = data.motion_detected && !data.warming_up;
 
-  document.getElementById("stat-frames").textContent  = data.frame_count;
-  document.getElementById("stat-warmup").textContent  = data.warming_up ? warmLeft : "✅ Done";
-  document.getElementById("stat-ratio").textContent   = ratio + "%";
-  document.getElementById("stat-pixels").textContent  = data.foreground_pixels.toLocaleString();
-  document.getElementById("stat-ping").textContent    = ping + " ms";
-  document.getElementById("stat-events").textContent  = motionEvents;
+  document.getElementById("stat-frames").textContent = data.frame_count;
+  document.getElementById("stat-warmup").textContent = data.warming_up
+    ? warmLeft
+    : "✅ Done";
+  document.getElementById("stat-ratio").textContent = ratio + "%";
+  document.getElementById("stat-pixels").textContent = (
+    data.foreground_pixels || 0
+  ).toLocaleString();
+  document.getElementById("stat-ping").textContent = ping + " ms";
+  document.getElementById("stat-events").textContent = motionEvents;
 
-  // FG ratio bar
-  const barPct = Math.min(data.foreground_ratio / (THRESHOLD_RATIO * 5), 1) * 100;
-  document.getElementById("ratio-bar").style.width = barPct + "%";
-
-  // Threshold marker position
+  const barPct =
+    Math.min(data.foreground_ratio / (THRESHOLD_RATIO * 5), 1) * 100;
   const thresholdPct = (THRESHOLD_RATIO / (THRESHOLD_RATIO * 5)) * 100;
+  document.getElementById("ratio-bar").style.width = barPct + "%";
   document.getElementById("threshold-marker").style.left = thresholdPct + "%";
 
-  // Chart history
   ratioHistory.push(data.foreground_ratio);
   if (ratioHistory.length > CHART_POINTS) ratioHistory.shift();
   drawChart();
 
-  // Motion status box
   const box = document.getElementById("motion-status");
   if (data.warming_up) {
     const pct = Math.round((data.frame_count / WARMUP_FRAMES) * 100);
@@ -299,41 +443,39 @@ function updateUI(data, ping) {
   } else if (isMotion) {
     box.innerHTML = `<div class="motion-icon">🚨</div><div class="motion-text">Có chuyển động!</div>`;
     box.className = "motion-indicator motion-on";
-
     if (!lastMotion) {
       motionEvents++;
       document.getElementById("motion-event-count").textContent = motionEvents;
       addLog(`🚨 Phát hiện chuyển động! FG=${ratio}%`, "log-motion");
-
-      // Flash border
       motionFlash.classList.add("active");
       setTimeout(() => motionFlash.classList.remove("active"), 500);
-
-      // Sound alert
-      if (toggleSound.checked) playBeep(880, 0.2, "square");
-
-      // Auto snapshot
-      if (toggleAutosnap.checked && !autoSnapLast) takeSnapshot("auto");
+      if (soundEnabled) playBeep(880, 0.2, "square");
+      if (toggleAutosnap?.checked && !autoSnapLast && currentMode === "local")
+        takeSnapshot("auto");
     }
   } else {
     box.innerHTML = `<div class="motion-icon">✅</div><div class="motion-text">Bình thường</div>`;
     box.className = "motion-indicator motion-off";
     if (lastMotion) addLog("✅ Không còn chuyển động", "log-clear");
   }
-
   autoSnapLast = isMotion;
-  lastMotion   = isMotion;
+  lastMotion = isMotion;
 }
 
 // ── Log ───────────────────────────────────────────────────────
 function addLog(msg, cls = "log-info") {
   const log = document.getElementById("log");
   const div = document.createElement("div");
-  div.className   = cls;
+  div.className = cls;
   div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
   while (log.children.length > 120) log.removeChild(log.firstChild);
+}
+
+function clearLog() {
+  document.getElementById("log").innerHTML =
+    '<div class="log-info">── Log đã xóa ──</div>';
 }
 
 // ── Status badge ──────────────────────────────────────────────
@@ -341,22 +483,22 @@ function setStatus(state) {
   const badge = document.getElementById("status-badge");
   if (state === "live") {
     badge.textContent = "🔴 LIVE";
-    badge.className   = "badge live";
+    badge.className = "badge live";
   } else {
     badge.textContent = "⏹ Chưa bắt đầu";
-    badge.className   = "badge";
+    badge.className = "badge";
   }
 }
 
-// ── Cleanup ───────────────────────────────────────────────────
+// ── Cleanup local ─────────────────────────────────────────────
 function stopAll() {
   clearInterval(sendTimer);
   sendTimer = null;
   if (stream) stream.getTracks().forEach((t) => t.stop());
   stream = null;
-  btnStart.disabled    = false;
-  btnStop.disabled     = true;
-  btnReset.disabled    = true;
+  btnStart.disabled = false;
+  btnStop.disabled = true;
+  btnReset.disabled = true;
   btnSnapshot.disabled = true;
   setStatus("stopped");
   document.getElementById("cam-dot").classList.remove("live");
@@ -365,6 +507,6 @@ function stopAll() {
   placeholder.style.display = "";
 }
 
-// ── Init chart on load ────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────
 drawChart();
 window.addEventListener("resize", drawChart);
