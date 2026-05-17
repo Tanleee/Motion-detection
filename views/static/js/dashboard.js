@@ -12,7 +12,7 @@ const captureCanvas = document.getElementById("capture-canvas");
 const ratioChart = document.getElementById("ratio-chart");
 const motionFlash = document.getElementById("motion-flash");
 const placeholder = document.getElementById("placeholder");
-const espOverlay = document.getElementById("esp-overlay");
+const espPlaceholder = document.getElementById("esp-placeholder");
 const espFeed = document.getElementById("esp-feed");
 
 const dCtx = displayCanvas.getContext("2d");
@@ -50,6 +50,39 @@ let espApiKey = "";
 let espPollTimer = null;
 let espConnected = false;
 
+// ── Modal (ESP32-CAM connect) ──────────────────────────────────
+function openEspModal() {
+  const modal = document.getElementById("esp-modal");
+  const errEl = document.getElementById("esp-error");
+  errEl.style.display = "none";
+  modal.classList.add("open");
+  // Focus vào trường đầu tiên
+  setTimeout(() => document.getElementById("esp-cam-id").focus(), 80);
+}
+
+function closeEspModal() {
+  document.getElementById("esp-modal").classList.remove("open");
+}
+
+function handleModalBackdropClick(e) {
+  // Đóng khi click vào backdrop (không phải modal-box)
+  if (e.target === document.getElementById("esp-modal")) {
+    closeEspModal();
+  }
+}
+
+// Đóng modal bằng Escape
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeEspModal();
+});
+
+// Enter trong input → submit
+["esp-cam-id", "esp-api-key"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") connectEsp();
+  });
+});
+
 // ── Mode switching ─────────────────────────────────────────────
 function switchMode(mode) {
   if (mode === currentMode) return;
@@ -72,7 +105,7 @@ function switchMode(mode) {
 
   if (mode === "local") {
     espFeed.style.display = "none";
-    espOverlay.style.display = "none";
+    espPlaceholder.style.display = "none";
     displayCanvas.style.display = "";
     placeholder.style.display = "";
     document.getElementById("camera-label").textContent = "📷 Webcam local";
@@ -81,7 +114,7 @@ function switchMode(mode) {
     displayCanvas.style.display = "none";
     placeholder.style.display = "none";
     espFeed.style.display = "none";
-    espOverlay.style.display = "";
+    espPlaceholder.style.display = ""; // Hiện placeholder ESP
     document.getElementById("camera-label").textContent = "📡 ESP32-CAM";
     setStatus("stopped");
   }
@@ -92,6 +125,7 @@ function connectEsp() {
   const camId = document.getElementById("esp-cam-id").value.trim();
   const apiKey = document.getElementById("esp-api-key").value.trim();
   const errEl = document.getElementById("esp-error");
+  const btnConnect = document.getElementById("btn-modal-connect");
 
   errEl.style.display = "none";
   if (!camId || !apiKey) {
@@ -100,10 +134,10 @@ function connectEsp() {
     return;
   }
 
-  espCamId = camId;
-  espApiKey = apiKey;
+  // Loading state
+  btnConnect.disabled = true;
+  btnConnect.textContent = "Đang kết nối...";
 
-  // Kiểm tra camera tồn tại trên server trước
   fetch(`/api/cameras/${encodeURIComponent(camId)}/status`)
     .then((r) => {
       if (!r.ok)
@@ -114,6 +148,9 @@ function connectEsp() {
       if (!data.has_frame)
         throw new Error("Camera chưa có frame — ESP32 chưa kết nối?");
 
+      espCamId = camId;
+      espApiKey = apiKey;
+
       // Hiện MJPEG stream
       espFeed.onerror = () => {
         addLog("❌ Stream lỗi — kiểm tra Camera ID / API Key", "log-motion");
@@ -121,12 +158,17 @@ function connectEsp() {
       };
       espFeed.src = `/api/cameras/${encodeURIComponent(camId)}/mjpeg?api_key=${encodeURIComponent(apiKey)}`;
       espFeed.style.display = "";
-      espOverlay.style.display = "none";
+      espPlaceholder.style.display = "none";
       espConnected = true;
 
+      // Cập nhật controls
       document.getElementById("esp-cam-label").textContent = camId;
       document.getElementById("btn-esp-reset").disabled = false;
-      document.getElementById("esp-controls").style.display = "";
+      document.getElementById("btn-esp-disconnect").style.display = "";
+      // Ẩn nút "Kết nối" khi đã connected, chỉ hiện "Ngắt kết nối"
+      document.querySelector("#esp-controls .btn-primary").style.display =
+        "none";
+
       setStatus("live");
       document.getElementById("cam-dot").classList.add("live");
       addLog(`📡 Đã kết nối ESP32-CAM: ${camId}`, "log-info");
@@ -134,10 +176,21 @@ function connectEsp() {
 
       // Poll metrics mỗi 2s
       espPollTimer = setInterval(() => pollEspStatus(camId), 2000);
+
+      // Đóng modal
+      closeEspModal();
     })
     .catch((err) => {
       errEl.textContent = err.message;
       errEl.style.display = "";
+    })
+    .finally(() => {
+      btnConnect.disabled = false;
+      btnConnect.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M1 7a6 6 0 0 1 12 0" />
+        <path d="M3.5 9a4 4 0 0 1 7 0" stroke-dasharray="2 1.5"/>
+        <circle cx="7" cy="11" r="1.5" fill="currentColor" stroke="none"/>
+      </svg> Kết nối`;
     });
 }
 
@@ -147,9 +200,14 @@ function disconnectEsp() {
   espConnected = false;
   espFeed.src = "";
   espFeed.style.display = "none";
-  espOverlay.style.display = "";
+  espPlaceholder.style.display = currentMode === "esp" ? "" : "none";
+
   document.getElementById("cam-dot").classList.remove("live");
   document.getElementById("btn-esp-reset").disabled = true;
+  document.getElementById("btn-esp-disconnect").style.display = "none";
+  // Hiện lại nút kết nối
+  document.querySelector("#esp-controls .btn-primary").style.display = "";
+
   setStatus("stopped");
   stopSessionTimer();
   addLog("📡 Đã ngắt kết nối ESP32-CAM", "log-info");
@@ -163,7 +221,6 @@ async function pollEspStatus(camId) {
     const data = await res.json();
     const ping = Math.round(performance.now() - t0);
 
-    // Tái dùng updateUI với dữ liệu từ status
     const fakeData = {
       camera_id: data.camera_id,
       motion_detected: data.motion_detected,

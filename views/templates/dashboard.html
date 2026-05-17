@@ -115,7 +115,7 @@
           <canvas id="canvas"></canvas>
           <canvas id="overlay-canvas"></canvas>
 
-          <!-- ESP32-CAM stream (img MJPEG) -->
+          <!-- ESP32-CAM MJPEG stream -->
           <img
             id="esp-feed"
             style="display: none; width: 100%; border-radius: 8px"
@@ -124,7 +124,7 @@
 
           <div class="motion-flash" id="motion-flash"></div>
 
-          <!-- Placeholder local -->
+          <!-- Placeholder: Webcam local (chưa bắt đầu) -->
           <div class="placeholder" id="placeholder">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
               <rect
@@ -149,37 +149,35 @@
             <p>Nhấn <strong>Bắt đầu</strong> để mở camera</p>
           </div>
 
-          <!-- ESP connect overlay -->
-          <div class="esp-overlay" id="esp-overlay">
-            <div class="esp-connect-box">
-              <div class="esp-connect-title">📡 Kết nối ESP32-CAM</div>
-              <div class="esp-field">
-                <label>Camera ID</label>
-                <input
-                  id="esp-cam-id"
-                  type="text"
-                  placeholder="vd: esp32_cam1"
-                  autocomplete="off"
-                />
-              </div>
-              <div class="esp-field">
-                <label>API Key</label>
-                <input
-                  id="esp-api-key"
-                  type="password"
-                  placeholder="Nhập API key của bạn"
-                  autocomplete="off"
-                />
-              </div>
-              <button
-                class="btn btn-primary"
-                style="width: 100%; justify-content: center"
-                onclick="connectEsp()"
+          <!-- Placeholder: ESP32-CAM (chưa kết nối) -->
+          <div
+            class="esp-placeholder"
+            id="esp-placeholder"
+            style="display: none"
+          >
+            <div class="esp-placeholder-icon">📡</div>
+            <p>Chưa kết nối ESP32-CAM</p>
+            <button class="btn-connect-esp" onclick="openEspModal()">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
               >
-                Kết nối
-              </button>
-              <div id="esp-error" class="esp-error" style="display: none"></div>
-            </div>
+                <path d="M1 8a7 7 0 0 1 14 0" />
+                <path d="M3.5 10a5 5 0 0 1 9 0" stroke-dasharray="2 1.5" />
+                <circle
+                  cx="8"
+                  cy="12.5"
+                  r="1.5"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              </svg>
+              Kết nối ESP32-CAM
+            </button>
           </div>
         </div>
 
@@ -281,10 +279,36 @@
           </div>
         </div>
 
-        <!-- ESP cam controls -->
+        <!-- ESP cam controls (sau khi đã kết nối) -->
         <div class="controls" id="esp-controls" style="display: none">
           <div class="controls-left">
-            <button class="btn btn-danger" onclick="disconnectEsp()">
+            <button class="btn btn-primary" onclick="openEspModal()">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              >
+                <path d="M1 7a6 6 0 0 1 12 0" />
+                <path d="M3.5 9a4 4 0 0 1 7 0" stroke-dasharray="2 1.5" />
+                <circle
+                  cx="7"
+                  cy="11"
+                  r="1.5"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              </svg>
+              Kết nối
+            </button>
+            <button
+              class="btn btn-danger"
+              onclick="disconnectEsp()"
+              id="btn-esp-disconnect"
+              style="display: none"
+            >
               ✕ Ngắt kết nối
             </button>
             <button
@@ -326,12 +350,10 @@
                 Âm thanh
               </label>
             </div>
-            <span style="font-size: 0.78rem; color: var(--text-muted)"
-              >Camera ID:
-              <strong id="esp-cam-label" style="color: var(--accent)"
-                >—</strong
-              ></span
-            >
+            <span style="font-size: 0.78rem; color: var(--text-muted)">
+              Camera ID:
+              <strong id="esp-cam-label" style="color: var(--accent)">—</strong>
+            </span>
           </div>
         </div>
       </div>
@@ -392,9 +414,7 @@
         <div class="card">
           <div class="card-title">
             Event Log
-            <button id="btn-clear-log" class="btn-tiny" onclick="clearLog()">
-              Xóa
-            </button>
+            <button class="btn-tiny" onclick="clearLog()">Xóa</button>
           </div>
           <div id="log"><div class="log-info">── Chờ khởi động... ──</div></div>
         </div>
@@ -402,6 +422,95 @@
     </div>
 
     <canvas id="capture-canvas" style="display: none"></canvas>
+
+    <!-- ══════════════════════════════════════════════════════
+         Modal: Kết nối ESP32-CAM
+         (Nằm ngoài .layout, fixed toàn màn hình)
+    ══════════════════════════════════════════════════════ -->
+    <div
+      class="modal-backdrop"
+      id="esp-modal"
+      onclick="handleModalBackdropClick(event)"
+    >
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-title">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path d="M2 10a8 8 0 0 1 16 0" />
+              <path d="M5 13a6 6 0 0 1 10 0" stroke-dasharray="2 1.5" />
+              <circle cx="10" cy="16" r="2" fill="currentColor" stroke="none" />
+            </svg>
+            Kết nối ESP32-CAM
+          </div>
+          <button class="modal-close" onclick="closeEspModal()" title="Đóng">
+            ✕
+          </button>
+        </div>
+
+        <div class="modal-fields">
+          <div class="modal-field">
+            <label>Camera ID</label>
+            <input
+              id="esp-cam-id"
+              type="text"
+              placeholder="vd: esp32_cam1"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="modal-field">
+            <label>API Key</label>
+            <input
+              id="esp-api-key"
+              type="password"
+              placeholder="Nhập API key của bạn"
+              autocomplete="off"
+            />
+          </div>
+        </div>
+
+        <div id="esp-error" class="modal-error"></div>
+
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeEspModal()">
+            Hủy
+          </button>
+          <button
+            class="btn btn-primary"
+            id="btn-modal-connect"
+            onclick="connectEsp()"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+            >
+              <path d="M1 7a6 6 0 0 1 12 0" />
+              <path d="M3.5 9a4 4 0 0 1 7 0" stroke-dasharray="2 1.5" />
+              <circle
+                cx="7"
+                cy="11"
+                r="1.5"
+                fill="currentColor"
+                stroke="none"
+              />
+            </svg>
+            Kết nối
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script src="/static/js/dashboard.js"></script>
   </body>
 </html>
