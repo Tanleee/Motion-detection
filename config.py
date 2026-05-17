@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # ── Auth ─────────────────────────────────────────
     # Danh sách API key hợp lệ, ngăn cách bằng dấu phẩy
     # Ví dụ: "key_abc123,key_xyz789"
-    API_KEYS : str = ""
+    API_KEYS : str = "CAM_113"
 
     # Server
     HOST : str = "0.0.0.0"
